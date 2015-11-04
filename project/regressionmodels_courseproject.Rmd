@@ -1,0 +1,259 @@
+---
+title: "Regression Models - Course Project"
+author: "Dennis van den Berg"
+date: "21/09/2015"
+output: pdf_document
+---
+
+<!-- Info about assignment
+
+# Assignment
+
+## Context
+
+You work for Motor Trend, a magazine about the automobile industry. Looking at a data set of a collection of cars, they are interested in exploring the relationship between a set of variables and miles per gallon (MPG) (outcome). They are particularly interested in the following two questions:
+
+1. "Is an automatic or manual transmission better for MPG"
+2. "Quantify the MPG difference between automatic and manual transmissions"
+
+## Question
+
+Take the mtcars data set and write up an analysis to answer their question using regression models and exploratory data analyses.
+
+Your report must be:
+
+* Written as a PDF printout of a compiled (using knitr) R markdown document.
+* Brief. Roughly the equivalent of 2 pages or less for the main text. Supporting figures in an appendix can be included up to 5 total pages including the 2 for the main report. The appendix can only include figures.
+* Include a first paragraph executive summary.
+
+## Peer grading
+
+* Did the student interpret the coefficients correctly?
+* Did the student do some exploratory data analyses?
+* Did the student fit multiple models and detail their strategy for model selection?
+* Did the student answer the questions of interest or detail why the question(s) is (are) not answerable?
+* Did the student do a residual plot and some diagnostics?
+* Did the student quantify the uncertainty in their conclusions and/or perform an inference correctly?
+* Was the report brief (about 2 pages long) for the main body of the report and no longer than 5 with supporting appendix of figures?
+
+-->
+
+
+# Abstract
+
+This paper investigates the relationship of automatic versus manual transmission in cars on petrol mileage. After exploratory analysis of the dataset containing 11 variables measured for 32 different car models, a parsimoneous regression model was selected using several Anova nested model searches, which suggested an optimal regression model that also adjusts for car weight and horsepower. We found a higher petrol mileage (+2.1 +/- 1.4 mpg) for manual transmission compared to automatic, but this result was not significant (p=0.07 whereas alpha=0.05). Furthermore a significantly lower petrol mileage for increased weight (-2.9 +/- 0.9 mpg per 1000 lb) and also for increased horsepower (-0.037 +/- 0.010 mpg per hp) was observed. Residual plots and a Shapiro-Wilk normality test suggest there could still be some pattern left in the residuals (likely caused by 3 outliers in the data) and might be explained using a more complex regression model.
+
+
+# Introduction
+
+For Motor Trend magazine, we analyzed petrol mileage data of cars in miles per gallon (mpg) and its relationship to a set of car properties. Specifically, our goal was to answer these 2 questions:
+
+1. "Is an automatic or manual transmission better for mpg"
+2. "Quantify the mpg difference between automatic and manual transmissions"
+
+For this purpose we used the mtcars dataset of Henderson and Velleman, available from Base R. It contains 32 observations on 11 variables:
+
+~~~
+     mpg   Miles/(US) gallon              qsec  1/4 mile time
+     cyl   Number of cylinders            vs    V/S
+     disp  Displacement (cu.in.)          am    Transmission (0 = automatic, 1 = manual)
+     hp    Gross horsepower               gear  Number of forward gears
+     drat  Rear axle ratio                carb  Number of carburetors
+     wt    Weight (lb/1000)
+~~~
+
+
+# Exploratory Analysis
+
+Not correcting for other variables shows that manual transmission (am=1) gives a significantly (p=0.000285) higher petrol mileage (+7.245 +/- 1.764 mpg) than automatic (am=0). This can be seen in the `mpg ~ am` plot in Appendix A. Note that throughout our analysis we will use significance threshold alpha=0.05 in order to determine significance.
+
+However, from the other plots in the appendix we can see that petrol mileage is not solely related to transmission type, but that there are heavy correlations with weight (wt), horsepower (hp) and number of cylinders (cyl), for instance. Furthermore we observe that transmission type seems to be heavily correlated with these variables as well. This suggests a necessity to adjust for additional variables in a regression model.
+
+
+# Model Selection
+
+We did several nested model searches (Anova), each of which compared progressively more complex models with additional regressors (in different orders):
+
+~~~
+    mpg ~ factor(am)
+    ..
+    mpg ~ factor(am) + cyl + disp + hp + drat + wt + qsec + vs + gear + carb
+~~~
+
+These led us to select `wt` as a necessary regressor (with p-value Pr(>F) *always* smaller than 0.05), `cyl`, `hp`, `carb`, `gear` and `vs` as potential regressors (p-value smaller than 0.05 only in *some* ordered searches), and to discard `qsec`, `drat` and `disp` as potentially relevant ones (p-value *never* smaller than 0.05).
+
+A second round of Anova nested searches was performed by starting from the minimal model `mpg ~ factor(am) + wt` and adding the potential regressors in several different orders again. This led us to choose the following as the best (parsimonious) model for our investigation:
+
+~~~
+    mpg ~ factor(am) + wt + hp
+~~~
+
+We have to note that adding any of the `hp`, `cyl`, `vs` and `carb` variables as regressor to `mpg ~ factor(am) + wt` seems to be an improvement. We choose `hp` because it gives the *most significant* improvement. Furthermore, adding any of the remaining variables to `mpg ~ factor(am) + wt + hp`, as well as replacing `factor(am)` by an interaction term `factor(am)*gear` did not improve the model. 
+
+
+# Results
+
+```{r, echo=FALSE, eval=TRUE}
+data(mtcars)
+bestmodel <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+summary(bestmodel)$coef
+```
+Performing a linear regression with the above model we find that weight (wt) and horsepower (hp) are significant regressors (with p-values 0.0036 and 0.00055 much lower than our significance level alpha=0.05). We find negative coefficients for these regressors, pointing out a significantly lower petrol mileage for increased weight (-2.9 +/- 0.9 mpg per 1000 lb) and also for increased horsepower (-0.037 +/- 0.010 mpg per hp).
+
+The positive coefficient for transmission (am) means more petrol mileage (**+2.1 +/- 1.4 mpg**) for manual transmission compared to automatic, making manual transmission the better option for all other variables kept equal. However, due to a high p-value (p=0.14/2=0.07 for a one-sided t-test, which is above treshold alpha=0.05) we fail to reject the null hypothesis that the transmission coefficient is equal or less than 0, so we conclude that **manual transmission does not *significantly* influence petrol mileage**, when adjusted for weight and horsepower.
+
+
+# Discussion
+
+Performing a Shapiro-Wilk normality test on the residuals of the investigated model failed to reject normality (albeit with a fairly low p-value of 0.11), suggesting that the Anova analysis used during the model selection was valid. Several residual plots (see appendix A) show that there is still some pattern left in the residuals, however. This could explain the fairly low p-value of the Shapiro-Wilk normality test.
+
+Note that we could have used other or additional variables as regressors, but that this model gave best results in our Anova search with a minimal number of regressors, provided that we included transmission. Choosing a slightly different set of regressors (for examplen using `cyl`, `vs` or `carb` instead of `hp`) might change the regression coefficient for transmission type (am). It is interesting to note that we investigated these and found that all of these alternatives led to *positive though insignificant* regression coefficients for transmission type. This suggests robustness of our findings.
+
+In a "Residuals vs Fitted" plot three points in particular could be considered potential outliers (Chrystler Imperial, and Toyota Corolla and Fiat 128). All of these are located in the extreme regions of the weight/horsepower variables (either in high horsepower / high weight region, or in the low horsepower / low weight region). It is possible that a model with non-linear regressors would be better suited in fitting these extremes. We did not investigate this however.
+
+
+# Sources
+
+* Henderson and Velleman (1981), Building multiple regression models interactively. Biometrics, 37, 391–411.
+
+
+\newpage
+
+# Appendix A: Figures
+
+## Exploratory plots from mtcars dataset
+
+```{r echo=FALSE, eval=TRUE}
+# Load data and libraries
+data(mtcars)
+```
+```{r, echo=FALSE, eval=TRUE}
+par(mfrow=c(1,2))
+plot(mpg ~ factor(am), data=mtcars, xlab="am")
+plot(mpg ~ wt, mtcars)
+plot(mpg ~ hp, mtcars)
+plot(wt ~ factor(am), data=mtcars, xlab="am")
+plot(hp ~ factor(am), data=mtcars, xlab="am")
+plot(cyl ~ factor(am), data=mtcars, xlab="am")
+```
+
+
+## Residual plots and diagnostics on linear model
+
+```{r, echo=FALSE, eval=TRUE}
+# Select model for final analysis
+bestmodel <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+par(mfrow=c(1,2))
+plot(bestmodel, which=c(1,2))
+```
+
+
+<!--
+
+/newpage
+
+# Appendix B: Used code
+
+```{r echo=TRUE, eval=FALSE}
+# Load data and libraries
+data(mtcars)
+```
+
+```{r, echo=FALSE, eval=TRUE, eval=FALSE}
+# Only looking at mpg ~ am relationship, not correcting for other vars
+fit0 <- lm(mpg ~ factor(am), mtcars)
+summary(fit0)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+# Nested model search for adding regressors
+fit1a <- lm(mpg ~ factor(am) + cyl, mtcars)
+fit1b <- lm(mpg ~ factor(am) + cyl + disp, mtcars)
+fit1c <- lm(mpg ~ factor(am) + cyl + disp + hp, mtcars)
+fit1d <- lm(mpg ~ factor(am) + cyl + disp + hp + drat, mtcars)
+fit1e <- lm(mpg ~ factor(am) + cyl + disp + hp + drat + wt, mtcars)
+fit1f <- lm(mpg ~ factor(am) + cyl + disp + hp + drat + wt + qsec, mtcars)
+fit1g <- lm(mpg ~ factor(am) + cyl + disp + hp + drat + wt + qsec + vs, mtcars)
+fit1h <- lm(mpg ~ factor(am) + cyl + disp + hp + drat + wt + qsec + vs + gear, mtcars)
+fit1i <- lm(mpg ~ factor(am) + cyl + disp + hp + drat + wt + qsec + vs + gear + carb, mtcars)
+anova(fit0, fit1a, fit1b, fit1c, fit1d, fit1e, fit1f, fit1g, fit1h, fit1i)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+# Nested model search for adding regressors (reverse order)
+fit2a <- lm(mpg ~ factor(am) + carb, mtcars)
+fit2b <- lm(mpg ~ factor(am) + carb + gear, mtcars)
+fit2c <- lm(mpg ~ factor(am) + carb + gear + vs, mtcars)
+fit2d <- lm(mpg ~ factor(am) + carb + gear + vs + qsec, mtcars)
+fit2e <- lm(mpg ~ factor(am) + carb + gear + vs + qsec + wt, mtcars)
+fit2f <- lm(mpg ~ factor(am) + carb + gear + vs + qsec + wt + drat, mtcars)
+fit2g <- lm(mpg ~ factor(am) + carb + gear + vs + qsec + wt + drat + hp, mtcars)
+fit2h <- lm(mpg ~ factor(am) + carb + gear + vs + qsec + wt + drat + hp + disp, mtcars)
+fit2i <- lm(mpg ~ factor(am) + carb + gear + vs + qsec + wt + drat + hp + disp + cyl, mtcars)
+anova(fit0, fit2a, fit2b, fit2c, fit2d, fit2e, fit2f, fit2g, fit2h, fit2i)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit3a <- lm(mpg ~ factor(am) + cyl + hp + wt + carb + gear + vs, mtcars)
+summary(fit3a)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit4a <- lm(mpg ~ factor(am) + wt, mtcars)
+summary(fit4a)
+anova(fit0, fit4a)
+shapiro.test(resid(fit4a))
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit5a <- lm(mpg ~ factor(am) + wt + cyl, mtcars)
+fit5b <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+fit5c <- lm(mpg ~ factor(am) + wt + carb, mtcars)
+fit5d <- lm(mpg ~ factor(am) + wt + gear, mtcars)
+fit5e <- lm(mpg ~ factor(am) + wt + vs, mtcars)
+anova(fit0, fit4a, fit5a)
+anova(fit0, fit4a, fit5b)
+anova(fit0, fit4a, fit5c)
+anova(fit0, fit4a, fit5d)
+anova(fit0, fit4a, fit5e)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit6a <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+fit6b <- lm(mpg ~ factor(am) + wt + hp + cyl, mtcars)
+fit6c <- lm(mpg ~ factor(am) + wt + hp + cyl + vs, mtcars)
+fit6d <- lm(mpg ~ factor(am) + wt + hp + cyl + vs + carb, mtcars)
+fit6e <- lm(mpg ~ factor(am) + wt + hp + cyl + vs + carb + vs, mtcars)
+anova(fit0, fit4a, fit6a, fit6b, fit6c, fit6d, fit6e)
+summary(fit6a)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit7a <- lm(mpg ~ factor(am) + wt + hp + vs, mtcars)
+anova(fit0, fit4a, fit6a, fit7a)
+```
+
+```{r, echo=TRUE, eval=FALSE}
+fit8b <- lm(mpg ~ factor(am)*gear + wt + hp, mtcars)
+anova(fit6a, fit8b)
+```
+
+```{r, echo=FALSE, eval=TRUE}
+# Select model for final analysis
+bestmodel <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+summary(bestmodel)$coef
+```
+
+```{r, echo=FALSE, eval=FALSE}
+#fit6a <- lm(mpg ~ factor(am) + wt + hp, mtcars)
+shapiro.test(resid(bestmodel))
+```
+
+```{r}
+# Checking robustness of bestmodel by comparing to alternative regression models
+summary(lm(mpg ~ factor(am) + wt + cyl, mtcars))
+summary(lm(mpg ~ factor(am) + wt + vs, mtcars))
+summary(lm(mpg ~ factor(am) + wt + carb, mtcars))
+```
+
+-->
